@@ -1,0 +1,214 @@
+/* donquinleone.com: a terminal session, replayed.
+   Palette is Kanagawa Wave. The whole boot sequence is timed
+   from the constants below so the choreography lives in one
+   place instead of scattered per-rule literals. */
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/jetbrains-mono-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../fonts/jetbrains-mono-700.woff2') format('woff2');
+}
+
+:root {
+  /* Kanagawa Wave palette */
+  --sumi0: #16161d;     /* sumiInk0: page background */
+  --sumi1: #1f1f28;     /* sumiInk1: key block background */
+  --sumi3: #363646;     /* sumiInk3: hairline borders */
+  --fuji: #dcd7ba;      /* fujiWhite: typed commands, tree */
+  --fuji-gray: #727169; /* fujiGray: command output, footer */
+  --orange: #ffa066;    /* surimiOrange: name, links, dirs */
+  --yellow: #ff9e3b;    /* roninYellow: prompt and cursor */
+  --autumn: #dca561;    /* autumnYellow: gpg key block text */
+
+  /* Boot-sequence timeline. Rhythm constants first; every
+     instant on the timeline is derived from them, so a single
+     edit retimes the whole sequence. */
+  --crt-on: 1.1s;      /* power-on flicker length */
+  --type-short: 0.8s;  /* keystroke burst, short commands */
+  --type-long: 1.3s;   /* keystroke burst, the gpg command */
+  --output-lag: 0.1s;  /* beat between "enter" and output */
+  --think: 0.6s;       /* pause before the next command */
+  --settle: 0.4s;      /* rest before the idle prompt shows */
+  --blink: 1.1s;       /* cursor blink period */
+  --appear: 0.15s;     /* output fade-in length */
+  --instant: 0.01s;    /* zero-length step for state flips */
+
+  /* Instants: tN is when command N starts typing, rN is when
+     its output appears (typing done, plus the output lag). */
+  --t1: var(--crt-on);
+  --r1: calc(var(--t1) + var(--type-short) + var(--output-lag));
+  --t2: calc(var(--r1) + var(--think));
+  --r2: calc(var(--t2) + var(--type-short) + var(--output-lag));
+  --t3: calc(var(--r2) + var(--think));
+  --r3: calc(var(--t3) + var(--type-short) + var(--output-lag));
+  --t4: calc(var(--r3) + var(--think));
+  --r4: calc(var(--t4) + var(--type-long) + var(--output-lag));
+  --r5: calc(var(--r4) + var(--settle));
+
+  --cursor-w: 9px;     /* block cursor width, one glyph cell */
+  --cursor-h: 18px;    /* block cursor height, one text line */
+}
+
+* { box-sizing: border-box; margin: 0; }
+
+body {
+  background: var(--sumi0);
+  color: var(--fuji);
+  font-family: 'JetBrains Mono', monospace;
+  line-height: 1.7;
+  font-size: 15px;
+  animation: crt-on var(--crt-on) steps(1) both;
+}
+
+/* Uneven brightness steps read as a tube warming up */
+@keyframes crt-on {
+  0% { opacity: 0; }
+  8% { opacity: 1; }
+  14% { opacity: 0.2; }
+  22% { opacity: 1; }
+  30% { opacity: 0.5; }
+  38% { opacity: 1; }
+  52% { opacity: 0.85; }
+  60%, 100% { opacity: 1; }
+}
+
+/* Scanlines: a faint dark line every third pixel */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg,
+    rgba(0, 0, 0, 0.14) 0 1px, transparent 1px 3px);
+}
+
+.wrap { max-width: 780px; margin: 0 auto; padding: 60px 28px; }
+.prompt { color: var(--yellow); }
+.cmd { color: var(--fuji); }
+.out { color: var(--fuji-gray); }
+
+h1 {
+  color: var(--orange);
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 6px 0 4px;
+  letter-spacing: 0.02em;
+  /* phosphor bloom around the name */
+  text-shadow: 0 0 18px rgba(255, 160, 102, 0.35);
+}
+
+.block { margin-bottom: 40px; }
+.line { margin-bottom: 10px; }
+
+/* CSS-only typing with a travelling cursor: the border-right
+   is the cursor; it blinks while idle, travels as the width
+   animates, then vanishes when the command has been "run".
+   Width quantises in steps so it reads as keystrokes rather
+   than a smooth wipe. Each .tN sets --w (the command length
+   in ch) and the three delays: typing start, cursor-off,
+   blink (always live). */
+.type {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  vertical-align: bottom;
+  width: 0;
+  box-sizing: content-box;
+  border-right: var(--cursor-w) solid var(--yellow);
+  animation:
+    typing var(--type-short) steps(16) forwards,
+    cursor-off var(--instant) linear forwards,
+    blink var(--blink) steps(1) infinite;
+  animation-fill-mode: forwards;
+}
+@keyframes typing { to { width: var(--w); } }
+@keyframes cursor-off {
+  to {
+    border-right-color: transparent;
+    animation-timing-function: step-end;
+  }
+}
+@keyframes blink { 50% { border-right-color: transparent; } }
+
+.t1 {
+  --w: 6ch;
+  animation-delay: var(--t1),
+    calc(var(--t1) + var(--type-short)), 0s;
+}
+.t2 {
+  --w: 10ch;
+  animation-delay: var(--t2),
+    calc(var(--t2) + var(--type-short)), 0s;
+}
+.t3 {
+  --w: 11ch;
+  animation-delay: var(--t3),
+    calc(var(--t3) + var(--type-short)), 0s;
+}
+.t4 {
+  --w: 32ch;
+  animation-delay: var(--t4),
+    calc(var(--t4) + var(--type-long)), 0s;
+  animation-duration: var(--type-long), var(--instant),
+    var(--blink);
+}
+
+.reveal { opacity: 0; animation: appear var(--appear) forwards; }
+.r1 { animation-delay: var(--r1); }
+.r2 { animation-delay: var(--r2); }
+.r3 { animation-delay: var(--r3); }
+.r4 { animation-delay: var(--r4); }
+.r5 { animation-delay: var(--r5); }
+@keyframes appear { to { opacity: 1; } }
+
+.tree { color: var(--fuji); }
+.tree .dir { color: var(--orange); }
+.tree .note { color: var(--fuji-gray); }
+
+a { color: var(--orange); text-decoration: underline; }
+a:hover { background: var(--orange); color: var(--sumi0); }
+
+.keybox {
+  border: 1px solid var(--sumi3);
+  background: var(--sumi1);
+  padding: 18px 20px;
+  margin-top: 12px;
+  color: var(--autumn);
+  font-size: 0.85rem;
+  overflow-x: auto;
+}
+.keybox b { color: var(--orange); font-weight: 400; }
+.keylink { margin-top: 10px; }
+
+.cursor {
+  display: inline-block;
+  width: var(--cursor-w);
+  height: var(--cursor-h);
+  background: var(--yellow);
+  vertical-align: text-bottom;
+  animation: blink-solid var(--blink) steps(1) infinite;
+}
+@keyframes blink-solid { 50% { opacity: 0; } }
+
+.foot {
+  color: var(--fuji-gray);
+  font-size: 0.8rem;
+  margin-top: 56px;
+}
+
+/* Settled page, instantly: no flicker, typing or blinking */
+@media (prefers-reduced-motion: reduce) {
+  body { animation: none; }
+  .type { width: var(--w); animation: none; border-right: none; }
+  .reveal { opacity: 1; animation: none; }
+  .cursor { animation: none; }
+}

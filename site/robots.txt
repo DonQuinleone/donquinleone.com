@@ -1,0 +1,11 @@
+# Not for indexing or archiving.
+User-agent: *
+Disallow: /
+
+# The Internet Archive has ignored the wildcard rule before, so
+# its crawlers are named explicitly as well.
+User-agent: ia_archiver
+Disallow: /
+
+User-agent: archive.org_bot
+Disallow: /
